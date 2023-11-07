@@ -1,0 +1,128 @@
+using K2_Lab_10___Anropa_databasen__SQL___ORM_.Data;
+using K2_Lab_10___Anropa_databasen__SQL___ORM_.Models;
+using System;
+using System.Linq;
+
+namespace K2_Lab_10___Anropa_databasen__SQL___ORM_
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            using (var context = new NorthContext())
+            {
+                Console.WriteLine("Välj sorteringsordning:");
+                Console.WriteLine("1. Stigande ordning");
+                Console.WriteLine("2. Fallande ordning");
+
+                string sortOrderChoice = Console.ReadLine();
+                bool isDescending = sortOrderChoice == "2";
+
+                var query = context.Customers
+                    .OrderBy(c => c.CompanyName)
+                    .ThenBy(c => c.Country) // Sortera efter företagsnamn och sedan land
+                    .Select(c => new
+                    {
+                        c.CustomerId,
+                        c.CompanyName,
+                        c.Country,
+                        c.Region,
+                        c.Phone,
+                        OrderCount = c.Orders.Count(),
+                        ShippedCount = c.Orders.Count(o => o.ShippedDate != null),
+                        UnshippedCount = c.Orders.Count(o => o.ShippedDate == null)
+                    });
+
+                string currentCountry = "";
+                if (isDescending)
+                {
+                    query = query.OrderByDescending(c => c.CompanyName);
+                }
+
+                foreach (var customer in query)
+                {
+                    if (customer.Country != currentCountry)
+                    {
+                        Console.WriteLine($"Land: {customer.Country}");
+                        currentCountry = customer.Country;
+                    }
+
+                    Console.WriteLine($"  Företagsnamn: {customer.CompanyName}");
+                    if (!string.IsNullOrWhiteSpace(customer.Region))
+                    {
+                        Console.WriteLine($"  Region: {customer.Region}");
+                    }
+                    Console.WriteLine($"  Telefon: {customer.Phone}");
+                    Console.WriteLine($"  Antal ordrar: {customer.OrderCount}");
+                    Console.WriteLine($"  Antal skickade ordrar: {customer.ShippedCount}");
+                    Console.WriteLine($"  Antal oskickade ordrar: {customer.UnshippedCount}");
+                    Console.WriteLine();
+                }
+
+                Console.WriteLine("1. Ange företagsnamn för att visa kundinformation och ordrar.");
+                Console.WriteLine("2. Lägg till ny kund.");
+
+                string menuChoice = Console.ReadLine();
+
+                if (menuChoice == "1")
+                {
+                    Console.WriteLine("Ange företagsnamn för att visa kundinformation och ordrar:");
+                    string selectedCompanyName = Console.ReadLine();
+
+                    var selectedCustomer = context.Customers.FirstOrDefault(c => c.CompanyName == selectedCompanyName);
+                    if (selectedCustomer != null)
+                    {
+                        Console.WriteLine($"Kundinformation för {selectedCustomer.CompanyName}:");
+                        Console.WriteLine($"  Telefon: {selectedCustomer.Phone}");
+
+                        var customerOrders = context.Orders.Where(o => o.CustomerId == selectedCustomer.CustomerId);
+                        Console.WriteLine($"Ordrar för {selectedCustomer.CompanyName}:");
+                        foreach (var order in customerOrders)
+                        {
+                            Console.WriteLine($"  OrderId: {order.OrderId}");
+                            Console.WriteLine($"  Orderdatum: {order.OrderDate}");
+                            Console.WriteLine($"  Skickat datum: {order.ShippedDate}");
+                            Console.WriteLine();
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Kunden med det angivna företagsnamnet hittades inte.");
+                    }
+                }
+                else if (menuChoice == "2")
+                {
+                    Console.WriteLine("Lägg till ny kund:");
+                    Console.Write("Ange företagsnamn: ");
+                    string newCompanyName = Console.ReadLine();
+
+                    // Generera ett slumpmässigt ID
+                    Random random = new Random();
+                    string newCustomerId = new string(Enumerable.Repeat("ABCDEFGHIJKLMNOPQRSTUVWXYZ", 5)
+                      .Select(s => s[random.Next(s.Length)]).ToArray());
+
+                    Console.Write("Ange land: ");
+                    string newCountry = Console.ReadLine();
+                    Console.Write("Ange region: ");
+                    string newRegion = Console.ReadLine();
+                    Console.Write("Ange telefon: ");
+                    string newPhone = Console.ReadLine();
+
+                    // Lägg till den nya kunden i databasen
+                    var newCustomer = new Customer
+                    {
+                        CustomerId = newCustomerId,
+                        CompanyName = newCompanyName,
+                        Country = newCountry,
+                        Region = newRegion,
+                        Phone = newPhone
+                    };
+                    context.Customers.Add(newCustomer);
+                    context.SaveChanges();
+
+                    Console.WriteLine("Ny kund har lagts till.");
+                }
+            }
+        }
+    }
+}
